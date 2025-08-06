@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tier List Maker</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: Arial, sans-serif;
+                background: #1a1a1a;
+                color: #fff;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+            }
+
+            .image-input {
+                margin-bottom: 20px;
+                text-align: center;
+            }
+
+            input[type="url"] {
+                width: 300px;
+                padding: 8px;
+                border: none;
+                border-radius: 4px;
+                margin-right: 10px;
+            }
+
+            button {
+                padding: 8px 16px;
+                background: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            button:hover {
+                background: #45a049;
+            }
+
+            .delete-btn {
+                background: #f44336;
+                margin-left: 10px;
+            }
+
+            .delete-btn:hover {
+                background: #da190b;
+            }
+
+            .tier-list {
+                margin-bottom: 30px;
+            }
+
+            .tier-row {
+                display: flex;
+                margin-bottom: 10px;
+                min-height: 80px;
+                background: #333;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+
+            .tier-label {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 80px;
+                font-size: 24px;
+                font-weight: bold;
+                color: #fff;
+                position: relative;
+            }
+
+            .tier-label input {
+                background: transparent;
+                border: none;
+                color: inherit;
+                font-size: inherit;
+                font-weight: inherit;
+                text-align: center;
+                width: 60px;
+            }
+
+            .tier-S { background: #ff7f7f; }
+            .tier-A { background: #ffbf7f; }
+            .tier-B { background: #ffdf7f; }
+            .tier-C { background: #ffff7f; }
+            .tier-D { background: #bfff7f; }
+            .tier-F { background: #7fbfff; }
+
+            .tier-content {
+                flex: 1;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-start;
+                padding: 10px;
+                min-height: 80px;
+                background: #2a2a2a;
+                position: relative;
+            }
+
+            .tier-content.drag-over {
+                background: #444;
+            }
+
+            .image-pool {
+                background: #333;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+                min-height: 150px;
+            }
+
+            .image-pool-content {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+                min-height: 100px;
+                position: relative;
+            }
+
+            .image-pool-content.drag-over {
+                background: #444;
+                border-radius: 4px;
+            }
+
+            .draggable-image {
+                width: 60px;
+                height: 60px;
+                object-fit: cover;
+                border-radius: 4px;
+                cursor: grab;
+                border: 2px solid transparent;
+                transition: transform 0.2s;
+                background: #666;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 10px;
+                text-align: center;
+                word-break: break-all;
+                padding: 2px;
+            }
+
+            .text-item {
+                width: 80px;
+                height: 60px;
+                background: #555;
+                border-radius: 4px;
+                cursor: grab;
+                border: 2px solid #777;
+                transition: transform 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 12px;
+                text-align: center;
+                word-break: break-word;
+                padding: 4px;
+            }
+
+            .draggable-image:hover, .text-item:hover {
+                transform: scale(1.1);
+            }
+
+            .draggable-image.dragging, .text-item.dragging {
+                opacity: 0.5;
+                cursor: grabbing;
+            }
+
+            .trash-can {
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                width: 60px;
+                height: 60px;
+                background: #f44336;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                cursor: pointer;
+                transition: all 0.3s;
+                left: 50%;
+                top: 65%;
+            }
+
+            .trash-can:hover {
+                transform: scale(1.1);
+            }
+
+            .trash-can.drag-over {
+                background: #ff6b6b;
+                transform: scale(1.2);
+            }
+
+            .add-tier-btn {
+                background: #2196F3;
+                margin-bottom: 20px;
+            }
+
+            .add-tier-btn:hover {
+                background: #1976D2;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="image-input">
+                <input type="url" id="imageUrl" placeholder="Enter image URL">
+                <button onclick="addImage()">Add Image</button>
+            </div>
+
+            <div class="image-pool">
+                <div class="image-pool-content" id="imagePool"></div>
+            </div>
+
+            <button onclick="saveAsJSON()">Save as JSON</button>
+            <input type="file" id="loadJsonFile" style="display:none" onchange="loadFromJSONFile(event)">
+            <button onclick="document.getElementById('loadJsonFile').click()">Load JSON</button>
+
+            <button class="add-tier-btn" onclick="addTier()">Add Tier +</button>
+
+            <div class="tier-list" id="tierList">
+                <div class="tier-row" data-tier="S">
+                    <div class="tier-label tier-S">
+                        <input type="text" value="S" onchange="updateTierLabel(this)">
+                    </div>
+                    <div class="tier-content"></div>
+                    <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                </div>
+                <div class="tier-row" data-tier="A">
+                    <div class="tier-label tier-A">
+                        <input type="text" value="A" onchange="updateTierLabel(this)">
+                    </div>
+                    <div class="tier-content"></div>
+                    <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                </div>
+                <div class="tier-row" data-tier="B">
+                    <div class="tier-label tier-B">
+                        <input type="text" value="B" onchange="updateTierLabel(this)">
+                    </div>
+                    <div class="tier-content"></div>
+                    <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                </div>
+                <div class="tier-row" data-tier="C">
+                    <div class="tier-label tier-C">
+                        <input type="text" value="C" onchange="updateTierLabel(this)">
+                    </div>
+                    <div class="tier-content"></div>
+                    <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                </div>
+                <div class="tier-row" data-tier="D">
+                    <div class="tier-label tier-D">
+                        <input type="text" value="D" onchange="updateTierLabel(this)">
+                    </div>
+                    <div class="tier-content"></div>
+                    <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                </div>
+                <div class="tier-row" data-tier="F">
+                    <div class="tier-label tier-F">
+                        <input type="text" value="F" onchange="updateTierLabel(this)">
+                    </div>
+                    <div class="tier-content"></div>
+                    <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="trash-can" id="trashCan">🗑️</div>
+
+        <script>
+            let draggedElement = null;
+            let tierColors = ['#ff7f7f', '#ffbf7f', '#ffdf7f', '#ffff7f', '#bfff7f', '#7fbfff', '#bf7fff', '#ff7fbf'];
+            let colorIndex = 6;
+
+            function addImage() {
+                const url = document.getElementById('imageUrl').value.trim();
+                if (!url) return;
+
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = 'draggable-image';
+                img.draggable = true;
+                img.title = url;
+
+                img.addEventListener('error', function() {
+                    const textItem = document.createElement('div');
+                    textItem.className = 'text-item';
+                    textItem.draggable = true;
+                    textItem.textContent = url.split('/').pop() || 'Image';
+                    textItem.title = url;
+
+                    textItem.addEventListener('dragstart', handleDragStart);
+                    textItem.addEventListener('dragend', handleDragEnd);
+
+                    this.parentNode.replaceChild(textItem, this);
+                });
+
+                img.addEventListener('dragstart', handleDragStart);
+                img.addEventListener('dragend', handleDragEnd);
+
+                document.getElementById('imagePool').appendChild(img);
+                document.getElementById('imageUrl').value = '';
+            }
+
+            function addFromFile() {
+                const files = document.getElementById('imageFile').files;
+                for (let file of files) {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.className = 'draggable-image';
+                            img.draggable = true;
+                            img.title = file.name;
+
+                            img.addEventListener('dragstart', handleDragStart);
+                            img.addEventListener('dragend', handleDragEnd);
+
+                            document.getElementById('imagePool').appendChild(img);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+                document.getElementById('imageFile').value = '';
+            }
+
+            function addTier() {
+                const tierList = document.getElementById('tierList');
+                const newTier = document.createElement('div');
+                newTier.className = 'tier-row';
+                newTier.dataset.tier = 'New';
+
+                const color = tierColors[colorIndex % tierColors.length];
+                colorIndex++;
+
+                newTier.innerHTML = `
+                        <div class="tier-label" style="background-color: ${color}">
+                            <input type="text" value="New" onchange="updateTierLabel(this)">
+                        </div>
+                        <div class="tier-content"></div>
+                        <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                    `;
+
+                tierList.appendChild(newTier);
+                setupDropZone(newTier.querySelector('.tier-content'));
+            }
+
+            function deleteTier(button) {
+                const tierRow = button.parentElement;
+                const images = tierRow.querySelectorAll('.draggable-image');
+                const imagePool = document.getElementById('imagePool');
+
+                images.forEach(img => imagePool.appendChild(img));
+
+                tierRow.remove();
+            }
+
+            function updateTierLabel(input) {
+                const tierRow = input.closest('.tier-row');
+                tierRow.dataset.tier = input.value;
+            }
+
+            function handleDragStart(e) {
+                draggedElement = e.target;
+                e.target.classList.add('dragging');
+            }
+
+            function handleDragEnd(e) {
+                e.target.classList.remove('dragging');
+                draggedElement = null;
+            }
+
+            function setupDropZone(element) {
+                element.addEventListener('dragover', handleDragOver);
+                element.addEventListener('drop', handleDrop);
+                element.addEventListener('dragenter', handleDragEnter);
+                element.addEventListener('dragleave', handleDragLeave);
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+            }
+
+            function handleDragEnter(e) {
+                e.preventDefault();
+                e.target.classList.add('drag-over');
+            }
+
+            function handleDragLeave(e) {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                    e.target.classList.remove('drag-over');
+                }
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                e.target.classList.remove('drag-over');
+
+                if (draggedElement) {
+                    e.target.appendChild(draggedElement);
+                }
+            }
+
+            function getCurrentState() {
+                const tiers = [];
+                document.querySelectorAll('.tier-row').forEach(row => {
+                    const label = row.querySelector('.tier-label input').value;
+                    const items = [];
+                    row.querySelectorAll('.draggable-image, .text-item').forEach(item => {
+                        items.push({
+                            type: item.tagName.toLowerCase() === 'img' ? 'image' : 'text',
+                            src: item.src || null,
+                            text: item.textContent || null
+                        });
+                    });
+                    tiers.push({ label, items });
+                });
+
+                const pool = [];
+                document.querySelectorAll('#imagePool .draggable-image, #imagePool .text-item').forEach(item => {
+                    pool.push({
+                        type: item.tagName.toLowerCase() === 'img' ? 'image' : 'text',
+                        src: item.src || null,
+                        text: item.textContent || null
+                    });
+                });
+
+                return { tiers, pool };
+            }
+
+            function saveAsJSON() {
+                const state = getCurrentState();
+                const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tierlist.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function loadFromJSONFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = JSON.parse(e.target.result);
+                    loadStateFromJSON(data);
+                };
+                reader.readAsText(file);
+            }
+
+            function loadStateFromJSON(data) {
+                const tierList = document.getElementById('tierList');
+                tierList.innerHTML = '';
+
+                data.tiers.forEach(tier => {
+                    const row = document.createElement('div');
+                    row.className = 'tier-row';
+                    const tierClass = ['S','A','B','C','D','F'].includes(tier.label) ? `tier-${tier.label}` : '';
+                    row.innerHTML = `
+                        <div class="tier-label ${tierClass}">
+                            <input type="text" value="${tier.label}" onchange="updateTierLabel(this)">
+                        </div>
+                        <div class="tier-content"></div>
+                        <button class="delete-btn" onclick="deleteTier(this)">×</button>
+                    `;
+
+                    const content = row.querySelector('.tier-content');
+                    tier.items.forEach(item => {
+                        const el = document.createElement(item.type === 'image' ? 'img' : 'div');
+                        if (item.type === 'image') {
+                            el.src = item.src;
+                            el.className = 'draggable-image';
+                        } else {
+                            el.textContent = item.text;
+                            el.className = 'text-item';
+                        }
+                        el.draggable = true;
+                        el.addEventListener('dragstart', handleDragStart);
+                        el.addEventListener('dragend', handleDragEnd);
+                        content.appendChild(el);
+                    });
+                    setupDropZone(content);
+                    tierList.appendChild(row);
+                });
+
+                const pool = document.getElementById('imagePool');
+                pool.innerHTML = '';
+                data.pool.forEach(item => {
+                    const el = document.createElement(item.type === 'image' ? 'img' : 'div');
+                    if (item.type === 'image') {
+                        el.src = item.src;
+                        el.className = 'draggable-image';
+                    } else {
+                        el.textContent = item.text;
+                        el.className = 'text-item';
+                    }
+                    el.draggable = true;
+                    el.addEventListener('dragstart', handleDragStart);
+                    el.addEventListener('dragend', handleDragEnd);
+                    pool.appendChild(el);
+                });
+            }
+
+
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.tier-content').forEach(setupDropZone);
+
+                setupDropZone(document.getElementById('imagePool'));
+
+                const trashCan = document.getElementById('trashCan');
+                trashCan.addEventListener('dragover', handleDragOver);
+                trashCan.addEventListener('dragenter', function(e) {
+                    e.preventDefault();
+                    trashCan.classList.add('drag-over');
+                });
+                trashCan.addEventListener('dragleave', function(e) {
+                    trashCan.classList.remove('drag-over');
+                });
+                trashCan.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    trashCan.classList.remove('drag-over');
+                    if (draggedElement) {
+                        draggedElement.remove();
+                    }
+                });
+
+                document.getElementById('imageUrl').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        addImage();
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
