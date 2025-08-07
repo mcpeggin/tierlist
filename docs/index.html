@@ -108,6 +108,7 @@
                 min-height: 80px;
                 background: #2a2a2a;
                 position: relative;
+                gap: 10px;
             }
 
             .tier-content.drag-over {
@@ -136,12 +137,12 @@
             }
 
             .draggable-image {
-                width: 60px;
-                height: 60px;
+                width: 75px;
+                height: 75px;
                 object-fit: cover;
                 border-radius: 4px;
                 cursor: grab;
-                border: 2px solid transparent;
+                border: 1px solid transparent;
                 transition: transform 0.2s;
                 background: #666;
                 display: flex;
@@ -151,7 +152,7 @@
                 font-size: 10px;
                 text-align: center;
                 word-break: break-all;
-                padding: 2px;
+                padding: 1px;
             }
 
             .text-item {
@@ -228,9 +229,7 @@
                 <div class="image-pool-content" id="imagePool"></div>
             </div>
 
-            <button onclick="saveAsJSON()">Save as JSON</button>
-            <input type="file" id="loadJsonFile" style="display:none" onchange="loadFromJSONFile(event)">
-            <button onclick="document.getElementById('loadJsonFile').click()">Load JSON</button>
+            <button onclick="saveToFirebase()">Save to Firebase</button>
 
             <button class="add-tier-btn" onclick="addTier()">Add Tier +</button>
 
@@ -281,6 +280,30 @@
         </div>
 
         <div class="trash-can" id="trashCan">🗑️</div>
+
+        <!-- Firebase App (compat) -->
+        <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js"></script>
+
+        <!-- Firebase Realtime Database (compat) -->
+        <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-database-compat.js"></script>
+
+
+        <script>
+            const firebaseConfig = {
+                apiKey: "AIzaSyAw_fXNxxX4wDke1VIuGoyR7XNeXKR3O94",
+                authDomain: "tierlist-393c8.firebaseapp.com",
+                projectId: "tierlist-393c8",
+                storageBucket: "tierlist-393c8.appspot.com",
+                messagingSenderId: "355495231607",
+                appId: "1:355495231607:web:831e148bad4b5072774672",
+                databaseURL: "https://tierlist-393c8-default-rtdb.europe-west1.firebasedatabase.app"
+            };
+
+
+            firebase.initializeApp(firebaseConfig);
+
+            const database = firebase.database();
+        </script>
 
         <script>
             let draggedElement = null;
@@ -410,10 +433,17 @@
 
             function handleDrop(e) {
                 e.preventDefault();
-                e.target.classList.remove('drag-over');
+
+                let dropZone = e.currentTarget;
+
+                if (e.target.classList.contains('draggable-image') || e.target.classList.contains('text-item')) {
+                    dropZone = e.target.parentElement;
+                }
+
+                dropZone.classList.remove('drag-over');
 
                 if (draggedElement) {
-                    e.target.appendChild(draggedElement);
+                    dropZone.appendChild(draggedElement);
                 }
             }
 
@@ -467,24 +497,62 @@
                 reader.readAsText(file);
             }
 
+            function saveToFirebase() {
+                const state = getCurrentState();
+
+                const timestamp = Date.now(); // unique key
+                const savePath = 'tierlists/' + timestamp;
+
+                database.ref(savePath).set(state)
+                    .then(() => {
+                        alert('Tier list saved to Firebase!');
+                    })
+                    .catch(error => {
+                        console.error('Error saving to Firebase:', error);
+                        alert('Failed to save. Check console.');
+                    });
+            }
+
+            function loadFromFirebase() {
+                database.ref('tierlists').once('value')
+                    .then(snapshot => {
+                        const data = snapshot.val();
+                        if (!data) {
+                            alert('No tier lists found in Firebase.');
+                            return;
+                        }
+
+                        const keys = Object.keys(data).sort((a, b) => b - a); // newest first
+                        const latest = data[keys[0]];
+
+                        loadStateFromJSON(latest);
+                    })
+                    .catch(error => {
+                        console.error('Error loading from Firebase:', error);
+                        alert('Failed to load. Check console.');
+                    });
+            }
+
             function loadStateFromJSON(data) {
                 const tierList = document.getElementById('tierList');
                 tierList.innerHTML = '';
 
-                data.tiers.forEach(tier => {
+                const tiers = Array.isArray(data.tiers) ? data.tiers : [];
+                tiers.forEach(tier => {
                     const row = document.createElement('div');
                     row.className = 'tier-row';
-                    const tierClass = ['S','A','B','C','D','F'].includes(tier.label) ? `tier-${tier.label}` : '';
+                    const tierClass = ['S', 'A', 'B', 'C', 'D', 'F'].includes(tier.label) ? `tier-${tier.label}` : '';
                     row.innerHTML = `
-                        <div class="tier-label ${tierClass}">
-                            <input type="text" value="${tier.label}" onchange="updateTierLabel(this)">
-                        </div>
-                        <div class="tier-content"></div>
-                        <button class="delete-btn" onclick="deleteTier(this)">×</button>
-                    `;
+            <div class="tier-label ${tierClass}">
+                <input type="text" value="${tier.label}" onchange="updateTierLabel(this)">
+            </div>
+            <div class="tier-content"></div>
+            <button class="delete-btn" onclick="deleteTier(this)">×</button>
+        `;
 
                     const content = row.querySelector('.tier-content');
-                    tier.items.forEach(item => {
+                    const items = Array.isArray(tier.items) ? tier.items : [];
+                    items.forEach(item => {
                         const el = document.createElement(item.type === 'image' ? 'img' : 'div');
                         if (item.type === 'image') {
                             el.src = item.src;
@@ -498,13 +566,15 @@
                         el.addEventListener('dragend', handleDragEnd);
                         content.appendChild(el);
                     });
+
                     setupDropZone(content);
                     tierList.appendChild(row);
                 });
 
-                const pool = document.getElementById('imagePool');
-                pool.innerHTML = '';
-                data.pool.forEach(item => {
+                const pool = Array.isArray(data.pool) ? data.pool : [];
+                const poolElement = document.getElementById('imagePool');
+                poolElement.innerHTML = '';
+                pool.forEach(item => {
                     const el = document.createElement(item.type === 'image' ? 'img' : 'div');
                     if (item.type === 'image') {
                         el.src = item.src;
@@ -516,15 +586,16 @@
                     el.draggable = true;
                     el.addEventListener('dragstart', handleDragStart);
                     el.addEventListener('dragend', handleDragEnd);
-                    pool.appendChild(el);
+                    poolElement.appendChild(el);
                 });
             }
-
 
             document.addEventListener('DOMContentLoaded', function() {
                 document.querySelectorAll('.tier-content').forEach(setupDropZone);
 
                 setupDropZone(document.getElementById('imagePool'));
+
+                loadFromFirebase();
 
                 const trashCan = document.getElementById('trashCan');
                 trashCan.addEventListener('dragover', handleDragOver);
